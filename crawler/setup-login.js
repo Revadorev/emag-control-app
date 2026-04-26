@@ -25,7 +25,11 @@ async function setupLogin() {
   console.log('╚══════════════════════════════════════════════════╝')
   console.log('')
 
-  await new Promise(resolve => process.stdin.once('data', resolve))
+  // Asteapta semnal de la Electron (IPC) sau stdin
+  await new Promise(resolve => {
+    process.stdin.once('data', resolve)
+    process.on('message', msg => { if (msg === 'ENTER') resolve() })
+  })
 
   const cookies = await context.cookies()
   const emagCookies = cookies.filter(c => c.domain.includes('emag.ro'))
