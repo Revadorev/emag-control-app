@@ -3,7 +3,7 @@
  * Apelat din API route /api/reviews/[id]/post sau /api/questions/[id]/post
  */
 
-require('dotenv').config({ path: '.env.local' })
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local') })
 const { createClient } = require('@supabase/supabase-js')
 const { createContext } = require('./emag-scraper')
 
