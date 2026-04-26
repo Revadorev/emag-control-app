@@ -39,6 +39,12 @@
         "from": ".env.local",
         "to": ".env.local"
       }
+    ],
+    "extraFiles": [
+      {
+        "from": "node_modules",
+        "to": "resources/node_modules"
+      }
     ]
   },
   "dependencies": {
