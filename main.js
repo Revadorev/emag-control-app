@@ -51,7 +51,10 @@ function runScript(key, scriptName, onDone) {
 
   const proc = spawn('node', [scriptPath], {
     cwd: basePath,
-    env: { ...process.env },
+    env: { 
+      ...process.env,
+      NODE_PATH: path.join(basePath, 'node_modules')
+    },
   })
   processes[key] = proc
 
