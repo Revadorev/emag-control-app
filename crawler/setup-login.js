@@ -1,4 +1,4 @@
-require('dotenv').config({ path: '.env.local' })
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local') })
 const { chromium } = require('playwright')
 const path = require('path')
 
