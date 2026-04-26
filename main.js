@@ -68,6 +68,14 @@ function runScript(key, scriptName, onDone) {
   return true
 }
 
+ipcMain.handle('login-enter', () => {
+  if (processes.login) {
+    processes.login.stdin.write('\n')
+    sendLog('login', '↩ ENTER trimis...')
+  }
+  return { ok: true }
+})
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 ipcMain.handle('start-login', () => {
   runScript('login', 'setup-login.js')
