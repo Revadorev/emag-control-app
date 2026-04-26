@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('api', {
+  loginEnter: () => ipcRenderer.invoke('login-enter'),
   startLogin: () => ipcRenderer.invoke('start-login'),
   stopLogin: () => ipcRenderer.invoke('stop-login'),
   startWatch: () => ipcRenderer.invoke('start-watch'),
