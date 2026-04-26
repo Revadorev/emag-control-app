@@ -1,0 +1,53 @@
+{
+  "name": "emag-control",
+  "version": "1.0.0",
+  "description": "eMAG Reviews Control Panel",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "ro.kidgps.emag-control",
+    "productName": "eMAG Control",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.html",
+      "icon.ico",
+      "crawler/**",
+      "browser-session/**",
+      ".env.local",
+      "node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": "crawler",
+        "to": "crawler"
+      },
+      {
+        "from": ".env.local",
+        "to": ".env.local"
+      }
+    ]
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.44.0"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  }
+}
