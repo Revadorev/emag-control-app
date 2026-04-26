@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<title>eMAG Control Panel</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  header .logo {
+    width: 32px; height: 32px;
+    background: #f97316;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px;
+  }
+  header h1 { font-size: 15px; font-weight: 600; }
+  header p { font-size: 11px; color: #64748b; margin-top: 1px; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── Stânga: butoane ── */
+  .controls {
+    width: 280px;
+    flex-shrink: 0;
+    padding: 16px;
+    border-right: 1px solid #1e293b;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #334155;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .dot.green { background: #22c55e; box-shadow: 0 0 5px #22c55e99; animation: pulse 2s infinite; }
+  .dot.orange { background: #f97316; box-shadow: 0 0 5px #f9731699; animation: pulse 2s infinite; }
+  .dot.blue { background: #3b82f6; box-shadow: 0 0 5px #3b82f699; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .status-text { font-size: 12px; color: #94a3b8; }
+
+  .btn-row { display: flex; gap: 6px; }
+  .btn {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 7px;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-green  { background: #16a34a; color: #fff; }
+  .btn-green:hover:not(:disabled)  { background: #15803d; }
+  .btn-red    { background: #dc2626; color: #fff; }
+  .btn-red:hover:not(:disabled)    { background: #b91c1c; }
+  .btn-blue   { background: #2563eb; color: #fff; }
+  .btn-blue:hover:not(:disabled)   { background: #1d4ed8; }
+  .btn-orange { background: #ea580c; color: #fff; }
+  .btn-orange:hover:not(:disabled) { background: #c2410c; }
+
+  /* card full sync special */
+  .card.highlight { border-color: #f97316; }
+  .card.highlight .card-title { color: #f97316; }
+
+  /* ── Dreapta: logs ── */
+  .logs-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .logs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+  .logs-title { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+  .tabs { display: flex; gap: 3px; }
+  .tab {
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid #334155;
+    background: transparent;
+    color: #64748b;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .tab.active { background: #334155; color: #e2e8f0; border-color: #475569; }
+  .badge {
+    display: none;
+    position: absolute;
+    top: -5px; right: -5px;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 9px;
+    padding: 1px 4px;
+    min-width: 14px;
+    text-align: center;
+  }
+  .clear-btn {
+    background: none; border: none;
+    color: #475569; font-size: 11px;
+    cursor: pointer; padding: 3px 7px;
+    border-radius: 4px;
+  }
+  .clear-btn:hover { color: #94a3b8; background: #1e293b; }
+  .log-box {
+    flex: 1;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 10px 12px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11.5px;
+    line-height: 1.65;
+    min-height: 0;
+  }
+  .log-line { color: #94a3b8; word-break: break-all; }
+  .log-line.ok   { color: #4ade80; }
+  .log-line.err  { color: #f87171; }
+  .log-line.info { color: #60a5fa; }
+  .log-line.warn { color: #fbbf24; }
+  .log-ch { color: #475569; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">eM</div>
+  <div>
+    <h1>eMAG Control Panel</h1>
+    <p>Gestionare recenzii și întrebări</p>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Controls -->
+  <div class="controls">
+
+    <!-- Login -->
+    <div class="card">
+      <div class="card-title">🔐 Login eMAG</div>
+      <div class="status-row">
+        <div class="dot" id="d-login"></div>
+        <span class="status-text" id="s-login">Inactiv</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-blue" id="b-login-start" onclick="startLogin()">▶ Pornește</button>
+        <button class="btn btn-red"  id="b-login-stop"  onclick="stopLogin()" disabled>■ Stop</button>
+      </div>
+    </div>
+
+    <!-- Watch -->
+    <div class="card">
+      <div class="card-title">👀 Watch — Poster Automat</div>
+      <div class="status-row">
+        <div class="dot" id="d-watch"></div>
+        <span class="status-text" id="s-watch">Oprit</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-green" id="b-watch-start" onclick="startWatch()">▶ Pornește</button>
+        <button class="btn btn-red"   id="b-watch-stop"  onclick="stopWatch()" disabled>■ Stop</button>
+      </div>
+    </div>
+
+    <!-- Sync produse -->
+    <div class="card">
+      <div class="card-title">🔄 Sync Produse</div>
+      <div class="status-row">
+        <div class="dot" id="d-sync"></div>
+        <span class="status-text" id="s-sync">Inactiv</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-blue" id="b-sync-start" onclick="startSync()">▶ Pornește</button>
+        <button class="btn btn-red"  id="b-sync-stop"  onclick="stopSync()" disabled>■ Stop</button>
+      </div>
+    </div>
+
+    <!-- Scrape recenzii -->
+    <div class="card">
+      <div class="card-title">📥 Scrape Recenzii & Întrebări</div>
+      <div class="status-row">
+        <div class="dot" id="d-scrape"></div>
+        <span class="status-text" id="s-scrape">Inactiv</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-blue" id="b-scrape-start" onclick="startScrape()">▶ Pornește</button>
+        <button class="btn btn-red"  id="b-scrape-stop"  onclick="stopScrape()" disabled>■ Stop</button>
+      </div>
+    </div>
+
+    <!-- Sync complet -->
+    <div class="card highlight">
+      <div class="card-title">🚀 Sync Complet (Produse → Scrape)</div>
+      <div class="status-row">
+        <div class="dot" id="d-full"></div>
+        <span class="status-text" id="s-full">Inactiv</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-orange" id="b-full-start" onclick="startFull()">▶ Rulează Tot</button>
+        <button class="btn btn-red"    id="b-full-stop"  onclick="stopFull()" disabled>■ Stop</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Logs -->
+  <div class="logs-panel">
+    <div class="logs-header">
+      <span class="logs-title">📋 Logs</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="tabs">
+          <button class="tab active" id="tab-all"    onclick="switchTab('all')">Toate</button>
+          <button class="tab"        id="tab-login"  onclick="switchTab('login')">Login<span class="badge" id="badge-login"></span></button>
+          <button class="tab"        id="tab-watch"  onclick="switchTab('watch')">Watch<span class="badge" id="badge-watch"></span></button>
+          <button class="tab"        id="tab-sync"   onclick="switchTab('sync')">Sync<span class="badge" id="badge-sync"></span></button>
+          <button class="tab"        id="tab-scrape" onclick="switchTab('scrape')">Scrape<span class="badge" id="badge-scrape"></span></button>
+          <button class="tab"        id="tab-full"   onclick="switchTab('full')">Full<span class="badge" id="badge-full"></span></button>
+        </div>
+        <button class="clear-btn" onclick="clearLogs()">✕ Șterge</button>
+      </div>
+    </div>
+    <div class="log-box" id="log-box">
+      <div class="log-line info">— Gata. Apasă un buton pentru a începe. —</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let activeTab = 'all'
+  let logs = []
+  let unread = {}
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    activeTab = tab
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.getElementById('tab-' + tab).classList.add('active')
+    if (tab !== 'all') {
+      unread[tab] = 0
+      const b = document.getElementById('badge-' + tab)
+      if (b) { b.style.display = 'none'; b.textContent = '' }
+    }
+    renderLogs()
+  }
+
+  function renderLogs() {
+    const box = document.getElementById('log-box')
+    const filtered = activeTab === 'all' ? logs : logs.filter(l => l.channel === activeTab)
+    if (!filtered.length) { box.innerHTML = '<div class="log-line info">— Niciun log. —</div>'; return }
+    box.innerHTML = filtered.map(l => {
+      const cls = /❌|⚠️/.test(l.msg) ? 'err' : /✅|🎉/.test(l.msg) ? 'ok' : /🔔|📡|👀|🚀|▶/.test(l.msg) ? 'info' : /🛑/.test(l.msg) ? 'warn' : ''
+      const ch = activeTab === 'all' ? `<span class="log-ch">[${l.channel}]</span>` : ''
+      return `<div class="log-line ${cls}">${ch}${esc(l.msg)}</div>`
+    }).join('')
+    box.scrollTop = box.scrollHeight
+  }
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+  function clearLogs() {
+    logs = []; unread = {}
+    document.querySelectorAll('.badge').forEach(b => { b.style.display='none'; b.textContent='' })
+    renderLogs()
+  }
+
+  // ── State helpers ─────────────────────────────────────────────────────────
+  function setState(key, running, dotColor, statusText) {
+    const dot = document.getElementById('d-' + key)
+    const st  = document.getElementById('s-' + key)
+    const bs  = document.getElementById('b-' + key + '-start')
+    const bst = document.getElementById('b-' + key + '-stop')
+    if (dot) dot.className = 'dot' + (running ? ' ' + dotColor : '')
+    if (st)  st.textContent = statusText
+    if (bs)  bs.disabled = running
+    if (bst) bst.disabled = !running
+  }
+
+  // ── Login ─────────────────────────────────────────────────────────────────
+  async function startLogin() {
+    setState('login', true, 'orange', 'Pornit...')
+    await window.api.startLogin()
+  }
+  async function stopLogin() { await window.api.stopLogin() }
+  window.api.on('login-stopped', () => setState('login', false, '', 'Inactiv'))
+
+  // ── Watch ─────────────────────────────────────────────────────────────────
+  async function startWatch() {
+    setState('watch', true, 'green', 'Ascultă aprobări...')
+    await window.api.startWatch()
+  }
+  async function stopWatch() { await window.api.stopWatch() }
+  window.api.on('watch-stopped', () => setState('watch', false, '', 'Oprit'))
+
+  // ── Sync ──────────────────────────────────────────────────────────────────
+  async function startSync() {
+    setState('sync', true, 'blue', 'Sincronizează produse...')
+    await window.api.startSync()
+  }
+  async function stopSync() { await window.api.stopSync() }
+  window.api.on('sync-stopped', () => setState('sync', false, '', 'Inactiv'))
+
+  // ── Scrape ────────────────────────────────────────────────────────────────
+  async function startScrape() {
+    setState('scrape', true, 'blue', 'Extrage recenzii...')
+    await window.api.startScrape()
+  }
+  async function stopScrape() { await window.api.stopScrape() }
+  window.api.on('scrape-stopped', () => setState('scrape', false, '', 'Inactiv'))
+
+  // ── Full sync ─────────────────────────────────────────────────────────────
+  async function startFull() {
+    setState('full', true, 'orange', 'Pas 1/2 — Sync produse...')
+    setState('sync', true, 'blue', 'Sincronizează...')
+    await window.api.startFull()
+  }
+  async function stopFull() { await window.api.stopFull() }
+  window.api.on('full-started', () => {})
+  window.api.on('full-stopped', () => {
+    setState('full',   false, '', 'Inactiv')
+    setState('sync',   false, '', 'Inactiv')
+    setState('scrape', false, '', 'Inactiv')
+  })
+  window.api.on('scrape-started', () => setState('scrape', true, 'blue', 'Extrage recenzii...'))
+
+  // ── Logs ──────────────────────────────────────────────────────────────────
+  window.api.onLog(({ channel, msg }) => {
+    msg.split('\n').filter(Boolean).forEach(line => {
+      logs.push({ channel, msg: line })
+      if (logs.length > 1000) logs.shift()
+      if (activeTab !== 'all' && activeTab !== channel) {
+        unread[channel] = (unread[channel] || 0) + 1
+        const b = document.getElementById('badge-' + channel)
+        if (b) { b.textContent = unread[channel]; b.style.display = 'inline-block' }
+      }
+    })
+    renderLogs()
+  })
+
+  // ── Init status ───────────────────────────────────────────────────────────
+  window.api.getStatus().then(s => {
+    if (s.login)  setState('login',  true, 'orange', 'Pornit...')
+    if (s.watch)  setState('watch',  true, 'green',  'Ascultă aprobări...')
+    if (s.sync)   setState('sync',   true, 'blue',   'Sincronizează...')
+    if (s.scrape) setState('scrape', true, 'blue',   'Extrage recenzii...')
+    if (s.full)   setState('full',   true, 'orange', 'Rulează...')
+  })
+</script>
+</body>
+</html>
