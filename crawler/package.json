@@ -1,0 +1,9 @@
+{
+  "name": "emag-crawler",
+  "version": "1.0.0",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.44.0"
+  }
+}
