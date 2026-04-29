@@ -12,6 +12,9 @@ let processes = {
 }
 
 function getBasePath() {
+  // Folosim intotdeauna C:\emag-reviews pentru crawler (actualizabil via git pull)
+  const externalPath = 'C:\\emag-reviews'
+  if (app.isPackaged && require('fs').existsSync(externalPath)) return externalPath
   return app.isPackaged ? process.resourcesPath : __dirname
 }
 
