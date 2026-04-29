@@ -33,12 +33,14 @@ function buildPrompt(template, vars) {
 }
 
 // ─── AI cu retry ──────────────────────────────────────────────────────────────
-async function generateReply(type, content, product) {
+async function generateReply(type, content, product, rating) {
   const s = await getSettings()
 
   const DEFAULT_REVIEW = `Esti un reprezentant profesionist de customer service pentru {{brand_name}}, vandut pe eMAG.ro.{{product_context}}
 Raspunde in limba romana, empatic si profesionist.
-Recunoaste problema, cere scuze si ofera solutie concreta (contact {{support_email}} sau garantie).
+Clientul a acordat {{rating}} stele din 5.
+Daca recenzia este pozitiva (4-5 stele): multumeste-i sincer pentru feedback, apreciaza experienta lui si incurajeaza-l sa revina. NU cere scuze, NU sugera probleme, NU intreba daca are nemultumiri.
+Daca recenzia este negativa (1-3 stele): recunoaste problema, cere scuze si ofera solutie concreta (contact {{support_email}} sau garantie).
 Maxim 3-4 propozitii.
 Termina cu: {{signature}}`
 
@@ -63,11 +65,13 @@ Termina cu: {{signature}}`
     signature: s.signature || 'Echipa KidGPS',
     product_context: productContext,
     author_name: '',
-    rating: ''
+    rating: rating || ''
   })
 
+  const review_rating = rating || ''
+
   const user = type === 'review'
-    ? `Scrie un raspuns la aceasta recenzie negativa: "${content}"`
+    ? `Scrie un raspuns la aceasta recenzie de ${review_rating} stele: "${content}"`
     : `Scrie un raspuns la aceasta intrebare: "${content}"`
 
   const model = s.ai_model || 'gpt-5.3-chat-latest'
@@ -192,7 +196,7 @@ async function crawlProduct(page, product, index, total) {
     if (existing) continue
 
     let aiReply = null
-    try { aiReply = await generateReply('review', review.content, product) } catch(e) {
+    try { aiReply = await generateReply('review', review.content, product, review.rating) } catch(e) {
       console.error(`\n  ❌ AI review error: ${e.message}`)
     }
 
