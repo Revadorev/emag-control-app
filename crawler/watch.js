@@ -13,7 +13,7 @@ const supabaseRealtime = createClient(
 )
 
 const DRY_RUN = process.env.DRY_RUN === 'true'
-const SESSION_DIR = path.join(__dirname, '..', 'browser-session')
+const SESSION_DIR = path.join(__dirname, '..', 'browser-session-watch')
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 let isProcessing = false
