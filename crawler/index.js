@@ -1,8 +1,11 @@
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local') })
+require('dotenv').config({ path: '.env.local' })
 const { chromium } = require('playwright')
 const { createClient } = require('@supabase/supabase-js')
 const OpenAI = require('openai')
 const path = require('path')
+
+// Data limită: nu luăm recenzii mai vechi de 01.04.2026
+const SINCE_DATE = new Date('2026-04-01T00:00:00Z')
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -95,7 +98,7 @@ async function fetchReviews(page, productUrl) {
   const [, sefName, pnk] = urlMatch
   const reviews = []
 
-  for (const rating of [1, 2, 3]) {
+  for (const rating of [1, 2, 3, 4, 5]) {
     let offset = 0
     let hasMore = true
     while (hasMore) {
@@ -108,7 +111,10 @@ async function fetchReviews(page, productUrl) {
         if (!json) break
         const items = json.reviews?.items || []
         const count = json.reviews?.count || 0
+        let hitDateLimit = false
         for (const item of items) {
+          const itemDate = item.created ? new Date(item.created) : null
+          if (itemDate && itemDate < SINCE_DATE) { hitDateLimit = true; break }
           reviews.push({
             rating: item.rating || rating,
             author: item.user?.name || item.user?.nickname || 'Anonim',
@@ -117,7 +123,8 @@ async function fetchReviews(page, productUrl) {
             reviewId: String(item.id || '')
           })
         }
-        if (offset + items.length < count && items.length === 50) offset += 50
+        if (hitDateLimit) hasMore = false
+        else if (offset + items.length < count && items.length === 50) offset += 50
         else hasMore = false
       } catch(e) { break }
     }
@@ -150,7 +157,10 @@ async function fetchQuestions(page, productUrl) {
       if (!json) break
       const items = json.questions?.items || []
       const count = json.questions?.count || 0
+      let hitDateLimitQ = false
       for (const item of items) {
+        const itemDateQ = item.created ? new Date(item.created) : null
+        if (itemDateQ && itemDateQ < SINCE_DATE) { hitDateLimitQ = true; break }
         if (!item.answers?.length) {
           questions.push({
             question: (item.content || '').replace(/<br\s*\/?>/gi, '\n').replace(/&lt;br\s*\/?&gt;/gi, '\n').trim(),
@@ -160,7 +170,8 @@ async function fetchQuestions(page, productUrl) {
           })
         }
       }
-      if (offset + items.length < count && items.length === 50) offset += 50
+      if (hitDateLimitQ) hasMore = false
+      else if (offset + items.length < count && items.length === 50) offset += 50
       else hasMore = false
     } catch(e) { break }
   }
@@ -174,7 +185,7 @@ async function crawlProduct(page, product, index, total) {
   let newReviews = 0, newQuestions = 0
 
   const reviews = await fetchReviews(page, product.url)
-  if (reviews.length > 0) console.log(`  ⭐ ${reviews.length} recenzii 1-3 stele`)
+  if (reviews.length > 0) console.log(`  ⭐ ${reviews.length} recenzii 1-5 stele`)
 
   for (const review of reviews) {
     const { data: existing } = await supabase.from('reviews').select('id').eq('emag_review_id', review.reviewId).single()
