@@ -93,32 +93,35 @@ async function main() {
   console.log('\n💾 Salvez în Supabase...')
   let saved = 0, skipped = 0, errors = 0
 
-  for (const product of finalProducts) {
+    for (const product of finalProducts) {
+    // Sanitizare robusta - elimina orice caracter care cauzeaza ByteString error
+    function sanitize(str) {
+      return (str || '').split('').map(c => {
+        var code = c.charCodeAt(0)
+        if (code < 128) return c
+        if (code >= 192 && code <= 255) return c
+        if (code === 8230) return '...'
+        return ''
+      }).join('').trim()
+    }
+
+    const safePnk = sanitize(product.pnk)
+    const safeUrl = sanitize(product.url)
+    const rawName = product.name && product.name.length > 5 ? product.name : `Produs ${safePnk}`
+    const name = sanitize(rawName) || `Produs ${safePnk}`
+
     const { data: existing } = await supabase
       .from('products')
       .select('id')
-      .eq('emag_id', product.pnk)
+      .eq('emag_id', safePnk)
       .single()
 
     if (existing) { skipped++; continue }
 
-    const rawName = product.name && product.name.length > 5
-      ? product.name
-      : `Produs ${product.pnk}`
-
-    // Sanitizare robusta - elimina orice caracter care cauzeaza ByteString error
-    const name = rawName.split('').map(c => {
-      var code = c.charCodeAt(0)
-      if (code < 128) return c
-      if (code >= 192 && code <= 255) return c
-      if (code === 8230) return '...'
-      return ''
-    }).join('').trim() || `Produs ${product.pnk}`
-
     const { error } = await supabase.from('products').insert({
       name: name.substring(0, 500),
-      url: product.url,
-      emag_id: product.pnk,
+      url: safeUrl,
+      emag_id: safePnk,
       active: true
     })
 
