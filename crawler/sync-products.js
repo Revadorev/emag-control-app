@@ -54,7 +54,7 @@ async function main() {
         return {
           url: href.split('?')[0].replace(/\/$/, '') + '/',
           pnk: pnkMatch[1],
-          name: name.substring(0, 500)
+          name: name.substring(0, 500).split('').map(c => { var code = c.charCodeAt(0); if (code < 128) return c; if (code >= 192 && code <= 255) return c; if (code === 8230) return '...'; return ''; }).join('')
         }
       }).filter(Boolean)
     ).catch(() => [])
@@ -102,9 +102,18 @@ async function main() {
 
     if (existing) { skipped++; continue }
 
-    const name = product.name && product.name.length > 5
+    const rawName = product.name && product.name.length > 5
       ? product.name
       : `Produs ${product.pnk}`
+
+    // Sanitizare robusta - elimina orice caracter care cauzeaza ByteString error
+    const name = rawName.split('').map(c => {
+      var code = c.charCodeAt(0)
+      if (code < 128) return c
+      if (code >= 192 && code <= 255) return c
+      if (code === 8230) return '...'
+      return ''
+    }).join('').trim() || `Produs ${product.pnk}`
 
     const { error } = await supabase.from('products').insert({
       name: name.substring(0, 500),
