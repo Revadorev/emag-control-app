@@ -43,7 +43,7 @@ async function main() {
     }
 
     // Extrage toate link-urile de produse
-    const pageProducts = await page.$$eval('a[href*="/pd/"][aria-label]', links =>
+    const pageProducts = (await page.$$eval('a[href*="/pd/"][aria-label]', links =>
       links.map(a => {
         const href = a.href
         const pnkMatch = href.match(/\/pd\/([A-Z0-9]+)/)
@@ -54,10 +54,14 @@ async function main() {
         return {
           url: href.split('?')[0].replace(/\/$/, '') + '/',
           pnk: pnkMatch[1],
-          name: name.substring(0, 500).split('').map(c => { var code = c.charCodeAt(0); if (code < 128) return c; if (code >= 192 && code <= 255) return c; if (code === 8230) return '...'; return ''; }).join('')
+          name: name.substring(0, 500)
         }
       }).filter(Boolean)
-    ).catch(() => [])
+    ).catch(() => [])).map(p => ({
+      pnk: p.pnk.replace(/[^\x00-\x7F]/g, ''),
+      url: p.url.replace(/[^\x00-\x7F]/g, ''),
+      name: p.name.replace(/[^\x00-\xFF]/g, c => c === '\u2026' ? '...' : '')
+    }))
 
     // Deduplicate pe pagina curenta
     const seen = new Set()
