@@ -93,52 +93,65 @@ async function main() {
 
   console.log(`\n✅ Total produse unice: ${finalProducts.length} din ${totalProducts} anunțate`)
 
+    // Sanitizare robusta - elimina orice caracter care cauzeaza ByteString error
+  function sanitize(str) {
+    if (!str) return ''
+    let result = ''
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i)
+      if (code < 128) result += str[i]
+      else if (code >= 192 && code <= 255) result += str[i]
+      // orice altceva inclusiv 8230 (ellipsis) - skip
+    }
+    return result.trim()
+  }
+
   // Salvare in Supabase
   console.log('\n💾 Salvez în Supabase...')
   let saved = 0, skipped = 0, errors = 0
 
-    for (const product of finalProducts) {
-    // Sanitizare robusta - elimina orice caracter care cauzeaza ByteString error
-    function sanitize(str) {
-      return (str || '').split('').map(c => {
-        var code = c.charCodeAt(0)
-        if (code < 128) return c
-        if (code >= 192 && code <= 255) return c
-        if (code === 8230) return '...'
-        return ''
-      }).join('').trim()
-    }
-
+  for (const product of finalProducts) {
     const safePnk = sanitize(product.pnk)
     const safeUrl = sanitize(product.url)
     const rawName = product.name && product.name.length > 5 ? product.name : `Produs ${safePnk}`
     const name = sanitize(rawName) || `Produs ${safePnk}`
 
-    const { data: existing } = await supabase
-      .from('products')
-      .select('id')
-      .eq('emag_id', safePnk)
-      .single()
-
-    if (existing) { skipped++; continue }
-
-    const { error } = await supabase.from('products').insert({
-      name: name.substring(0, 500),
-      url: safeUrl,
-      emag_id: safePnk,
-      active: true
-    })
-
-    if (error) {
-      if (!error.message.includes('duplicate')) {
-        console.error(`  ❌ ${product.pnk}: ${error.message}`)
-        errors++
-      } else {
-        skipped++
+    try {
+      // Debug: verifica ca safePnk e ASCII pur
+      for (let i = 0; i < safePnk.length; i++) {
+        if (safePnk.charCodeAt(i) > 127) {
+          console.error(`  ⚠️ PNK contine caracter non-ASCII la index ${i}: ${safePnk.charCodeAt(i)}`)
+        }
       }
-    } else {
-      console.log(`  ✅ ${product.pnk}: ${name.substring(0, 60)}`)
-      saved++
+      const { data: existing } = await supabase
+        .from('products')
+        .select('id')
+        .eq('emag_id', safePnk)
+        .single()
+
+      if (existing) { skipped++; continue }
+
+      const { error } = await supabase.from('products').insert({
+        name: name.substring(0, 500),
+        url: safeUrl,
+        emag_id: safePnk,
+        active: true
+      })
+
+      if (error) {
+        if (!error.message.includes('duplicate')) {
+          console.error(`  ❌ ${safePnk}: ${error.message}`)
+          errors++
+        } else {
+          skipped++
+        }
+      } else {
+        console.log(`  ✅ ${safePnk}: ${name.substring(0, 60)}`)
+        saved++
+      }
+    } catch (e) {
+      console.error(`  ❌ ${safePnk} [skip]: ${e.message}`)
+      errors++
     }
 
     await new Promise(r => setTimeout(r, 100))
