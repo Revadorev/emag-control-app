@@ -1,14 +1,53 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local') })
 const { chromium } = require('playwright')
-const { createClient } = require('@supabase/supabase-js')
 const path = require('path')
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const VENDOR_BASE = 'https://www.emag.ro/vendors/vendor/corecsrz'
+
+// Sanitizare - elimina orice caracter non-ASCII care cauzeaza ByteString errors
+function sanitize(str) {
+  if (!str) return ''
+  let result = ''
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i)
+    if (code <= 127) result += str[i]
+    // skip orice altceva inclusiv 8230 (ellipsis unicode)
+  }
+  return result.trim()
+}
+
+// Supabase REST API direct cu fetch - fara client JS
+async function supabaseSelect(table, filter) {
+  const params = new URLSearchParams(filter)
+  const url = `${SUPABASE_URL}/rest/v1/${table}?${params}&select=id`
+  const res = await fetch(url, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    }
+  })
+  const data = await res.json()
+  return Array.isArray(data) ? data : []
+}
+
+async function supabaseInsert(table, row) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+    'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(row)
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text)
+  }
+}
 
 async function main() {
   console.log('🚀 Sync Produse Vendor eMAG\n')
@@ -32,7 +71,6 @@ async function main() {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
     await new Promise(r => setTimeout(r, 2000))
 
-    // Total produse (doar prima pagina)
     if (pageNum === 1) {
       totalProducts = await page.$eval(
         '.js-listing-pagination strong:last-child',
@@ -42,8 +80,8 @@ async function main() {
       console.log(`📊 Total: ${totalProducts} produse (~${pages} pagini)\n`)
     }
 
-    // Extrage toate link-urile de produse
-    const pageProducts = (await page.$$eval('a[href*="/pd/"][aria-label]', links =>
+    // Extrage produse - fara sanitizare in browser context
+    const pageProducts = await page.$$eval('a[href*="/pd/"][aria-label]', links =>
       links.map(a => {
         const href = a.href
         const pnkMatch = href.match(/\/pd\/([A-Z0-9]+)/)
@@ -57,15 +95,18 @@ async function main() {
           name: name.substring(0, 500)
         }
       }).filter(Boolean)
-    ).catch(() => [])).map(p => ({
-      pnk: p.pnk.replace(/[^\x00-\x7F]/g, ''),
-      url: p.url.replace(/[^\x00-\x7F]/g, ''),
-      name: p.name.replace(/[^\x00-\xFF]/g, c => c === '\u2026' ? '...' : '')
-    }))
+    ).catch(() => [])
 
-    // Deduplicate pe pagina curenta
+    // Sanitizare in Node.js dupa ce ies din browser
+    const sanitized = pageProducts.map(p => ({
+      pnk: sanitize(p.pnk),
+      url: sanitize(p.url),
+      name: sanitize(p.name)
+    })).filter(p => p.pnk.length > 0)
+
+    // Deduplicate
     const seen = new Set()
-    const unique = pageProducts.filter(p => {
+    const unique = sanitized.filter(p => {
       if (seen.has(p.pnk)) return false
       seen.add(p.pnk)
       return true
@@ -74,7 +115,6 @@ async function main() {
     console.log(`  ✅ ${unique.length} produse unice găsite`)
     allProducts.push(...unique)
 
-    // Calculeaza daca mai sunt pagini
     const totalPages = Math.ceil(totalProducts / 60)
     if (pageNum >= totalPages || pageNum >= 20) break
     pageNum++
@@ -92,66 +132,34 @@ async function main() {
   })
 
   console.log(`\n✅ Total produse unice: ${finalProducts.length} din ${totalProducts} anunțate`)
-
-    // Sanitizare robusta - elimina orice caracter care cauzeaza ByteString error
-  function sanitize(str) {
-    if (!str) return ''
-    let result = ''
-    for (let i = 0; i < str.length; i++) {
-      const code = str.charCodeAt(i)
-      if (code < 128) result += str[i]
-      else if (code >= 192 && code <= 255) result += str[i]
-      // orice altceva inclusiv 8230 (ellipsis) - skip
-    }
-    return result.trim()
-  }
-
-  // Salvare in Supabase
   console.log('\n💾 Salvez în Supabase...')
+
   let saved = 0, skipped = 0, errors = 0
 
   for (const product of finalProducts) {
-    const safePnk = sanitize(product.pnk)
-    const safeUrl = sanitize(product.url)
-    const rawName = product.name && product.name.length > 5 ? product.name : `Produs ${safePnk}`
-    const name = sanitize(rawName) || `Produs ${safePnk}`
-
     try {
-      // Debug: verifica ca safePnk e ASCII pur
-      for (let i = 0; i < safePnk.length; i++) {
-        if (safePnk.charCodeAt(i) > 127) {
-          console.error(`  ⚠️ PNK contine caracter non-ASCII la index ${i}: ${safePnk.charCodeAt(i)}`)
-        }
-      }
-      const { data: existing } = await supabase
-        .from('products')
-        .select('id')
-        .eq('emag_id', safePnk)
-        .single()
+      const existing = await supabaseSelect('products', { 'emag_id': `eq.${product.pnk}` })
+      if (existing.length > 0) { skipped++; continue }
 
-      if (existing) { skipped++; continue }
+      const name = product.name.length > 5 ? product.name : `Produs ${product.pnk}`
 
-      const { error } = await supabase.from('products').insert({
+      await supabaseInsert('products', {
         name: name.substring(0, 500),
-        url: safeUrl,
-        emag_id: safePnk,
+        url: product.url,
+        emag_id: product.pnk,
         active: true
       })
 
-      if (error) {
-        if (!error.message.includes('duplicate')) {
-          console.error(`  ❌ ${safePnk}: ${error.message}`)
-          errors++
-        } else {
-          skipped++
-        }
-      } else {
-        console.log(`  ✅ ${safePnk}: ${name.substring(0, 60)}`)
-        saved++
-      }
+      console.log(`  ✅ ${product.pnk}: ${name.substring(0, 60)}`)
+      saved++
     } catch (e) {
-      console.error(`  ❌ ${safePnk} [skip]: ${e.message}`)
-      errors++
+      const msg = e.message || ''
+      if (msg.includes('duplicate') || msg.includes('23505')) {
+        skipped++
+      } else {
+        console.error(`  ❌ ${product.pnk}: ${msg.substring(0, 100)}`)
+        errors++
+      }
     }
 
     await new Promise(r => setTimeout(r, 100))
